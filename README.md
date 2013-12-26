@@ -1,5 +1,7 @@
 # command
 
+[![Build Status](https://travis-ci.org/rakyll/command.png?branch=master)](https://travis-ci.org/rakyll/command)
+
 command is a tiny package that helps you to add cli subcommands to your Go program.
 
 ## Usage
