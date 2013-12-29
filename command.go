@@ -82,8 +82,8 @@ func Parse() {
 	name := flag.Arg(0)
 	if cmd, ok := cmds[name]; ok {
 		fs := cmd.Flags(flag.NewFlagSet(name, flag.ExitOnError))
-		args := flag.Args()[1:]
-		fs.Parse(args)
+		fs.Parse(flag.Args()[1:])
+		args = fs.Args()
 		fn = cmd.Run
 	} else {
 		flag.Usage()

@@ -111,6 +111,17 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestAdditionalCommandArgs(t *testing.T) {
+	resetForTesting("command1", "--flag1=true", "somearg")
+
+	c1 := &testCmd1{}
+	On("command1", c1)
+	Parse()
+	if len(args) < 1 || args[0] != "somearg" {
+		t.Error("additional command 'somearg' is expected, but can't be found")
+	}
+}
+
 // Resets os.Args and the default flag set.
 func resetForTesting(args ...string) {
 	os.Args = append([]string{"cmd"}, args...)
