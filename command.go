@@ -98,3 +98,9 @@ func Run() {
 		fn(args)
 	}
 }
+
+// Parses flags and run's matching subcommand's runnable.
+func ParseAndRun() {
+	Parse()
+	Run()
+}
