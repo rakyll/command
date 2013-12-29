@@ -51,6 +51,7 @@ func TestCommand(t *testing.T) {
 	c1 := &testCmd1{}
 	On("command1", c1)
 	Parse()
+	Run()
 	if !c1.run {
 		t.Error("command 'command1' was expected to run, but it didn't")
 	}
@@ -70,6 +71,7 @@ func TestCommandFlags(t *testing.T) {
 	c1 := &testCmd1{}
 	On("command1", c1)
 	Parse()
+	Run()
 	if !c1.run {
 		t.Error("command 'command1' was expected to run, but it didn't")
 	}
@@ -88,11 +90,24 @@ func TestMultiCommands(t *testing.T) {
 	On("command1", c1)
 	On("command2", c2)
 	Parse()
+	Run()
 	if c1.run {
 		t.Error("command 'command1' was not expected to run, but it did")
 	}
 	if !c2.run {
 		t.Error("command 'command2' was expected to run, but it didn't")
+	}
+}
+
+// Tests if subcommand runnable has run, if Run is not invoked.
+func TestRun(t *testing.T) {
+	resetForTesting("command1")
+
+	c1 := &testCmd1{}
+	On("command1", c1)
+	Parse()
+	if c1.run {
+		t.Error("command 'command1' was not expected to run, but it did")
 	}
 }
 

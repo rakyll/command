@@ -39,6 +39,8 @@ command.On("version", &VersionCommand{})
 command.On("command1", ...)
 command.On("command2", ...)
 command.Parse()
+// ...
+command.Run()
 ~~~
 
 The program above will handle the registered commands and invoke the matching command's `Run`.

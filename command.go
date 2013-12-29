@@ -26,6 +26,12 @@ import (
 // A map of all of the registered sub-commands.
 var cmds map[string]Cmd = make(map[string]Cmd)
 
+// Matching subcommand's runnable function.
+var fn func([]string)
+
+// Arguments to call subcommand's runnable.
+var args []string
+
 // Cmd represents a sub command, allowing to define subcommand
 // flags and runnable to run once arguments match the subcommand
 // requirements.
@@ -78,9 +84,17 @@ func Parse() {
 		fs := cmd.Flags(flag.NewFlagSet(name, flag.ExitOnError))
 		args := flag.Args()[1:]
 		fs.Parse(args)
-		cmd.Run(args)
+		fn = cmd.Run
 	} else {
 		flag.Usage()
 		os.Exit(1)
+	}
+}
+
+// Runs the subcommand's runnable. If there is no subcommand
+// registered, it silently returns.
+func Run() {
+	if fn != nil {
+		fn(args)
 	}
 }
