@@ -45,13 +45,13 @@ command.Run()
 
 The program above will handle the registered commands and invoke the matching command's `Run` or print subcommand help if `-h` is set.
 
-~~~ sh
+~~~
 $ program -exec-path=/home/user/bin/someexec version -v=true
 ~~~
 
 will out the version of the program in a verbose way, and will set the exec path to the provided path. If arguments doesn't match any subcommand or illegal arguments are provided, it will print this beautiful usage guide:
 
-~~~ sh
+~~~
 $ program
 Usage: program <command>
 
