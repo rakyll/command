@@ -2,7 +2,21 @@
 
 [![Build Status](https://travis-ci.org/rakyll/command.png?branch=master)](https://travis-ci.org/rakyll/command)
 
-command is a tiny package that helps you to add cli subcommands to your Go program.
+command is a tiny package that helps you to add cli subcommands to your Go program with no effort, and prints a pretty guide if needed.
+
+~~~
+Usage: program <command>
+
+where <command> is one of:
+  version   prints the version
+  command1  some description about command1
+  command2  some description about command2
+
+available flags:
+  -exec-path="": a custom path to executable
+
+program <command> -h for subcommand help
+~~~
 
 ## Usage
 
@@ -49,22 +63,8 @@ The program above will handle the registered commands and invoke the matching co
 $ program -exec-path=/home/user/bin/someexec version -v=true
 ~~~
 
-will out the version of the program in a verbose way, and will set the exec path to the provided path. If arguments doesn't match any subcommand or illegal arguments are provided, it will print this beautiful usage guide:
+will out the version of the program in a verbose way, and will set the exec path to the provided path. If arguments doesn't match any subcommand or illegal arguments are provided, it will print the usage guide.
 
-~~~
-$ program
-Usage: program <command>
-
-where <command> is one of:
-  version   prints the version
-  command1  some description about command1
-  command2  some description about command2
-
-available flags:
-  -exec-path="": a custom path to executable
-
-program <command> -h for subcommand help
-~~~
 
 ## License
 
