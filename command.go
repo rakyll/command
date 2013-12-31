@@ -24,13 +24,17 @@ import (
 )
 
 // A map of all of the registered sub-commands.
-var cmds map[string]Cmd = make(map[string]Cmd)
+var cmds map[string]*cmdCont = make(map[string]*cmdCont)
 
-// Matching subcommand's runnable function.
-var fn func([]string)
+// Matching subcommand.
+var matchingCmd *cmdCont
 
 // Arguments to call subcommand's runnable.
 var args []string
+
+// Flag to determine whether help is
+// asked for subcommand or not
+var flagHelp *bool
 
 // Cmd represents a sub command, allowing to define subcommand
 // flags and runnable to run once arguments match the subcommand
@@ -40,22 +44,50 @@ type Cmd interface {
 	Run(args []string)
 }
 
+type cmdCont struct {
+	name    string
+	desc    string
+	command Cmd
+}
+
 // Registers a Cmd for the provided sub-command name. E.g. name is the
 // `status` in `git status`.
-func On(name string, command Cmd) {
-	cmds[name] = command
+func On(name, description string, command Cmd) {
+	cmds[name] = &cmdCont{
+		name:    name,
+		desc:    description,
+		command: command,
+	}
 }
 
 // Prints the usage.
 func Usage() {
-	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-	flag.PrintDefaults()
-	for name, cmd := range cmds {
-		fmt.Fprintf(os.Stderr, "\n  %s\n", name)
-		// should only output sub command flags
-		fs := cmd.Flags(flag.NewFlagSet(name, flag.ContinueOnError))
-		fs.PrintDefaults()
+	program := os.Args[0]
+	if len(cmds) == 0 {
+		// no subcommands
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", program)
+		flag.PrintDefaults()
+		return
 	}
+
+	fmt.Fprintf(os.Stderr, "Usage: %s <command>\n\n", program)
+	fmt.Fprintf(os.Stderr, "where <command> is one of:\n")
+	for name, cont := range cmds {
+		fmt.Fprintf(os.Stderr, "  %s\t%s\n", name, cont.desc)
+	}
+
+	if numOfGlobalFlags() > 0 {
+		fmt.Fprintf(os.Stderr, "\navailable flags:\n")
+		flag.PrintDefaults()
+	}
+	fmt.Fprintf(os.Stderr, "\n%s <command> -h for subcommand help\n", program)
+}
+
+func subcommandUsage(cont *cmdCont) {
+	fmt.Fprintf(os.Stderr, "Usage of %s %s:\n", os.Args[0], cont.name)
+	// should only output sub command flags, ignore h flag.
+	fs := matchingCmd.command.Flags(flag.NewFlagSet(cont.name, flag.ContinueOnError))
+	fs.PrintDefaults()
 }
 
 // Parses the flags and leftover arguments to match them with a
@@ -80,11 +112,12 @@ func Parse() {
 	}
 
 	name := flag.Arg(0)
-	if cmd, ok := cmds[name]; ok {
-		fs := cmd.Flags(flag.NewFlagSet(name, flag.ExitOnError))
+	if cont, ok := cmds[name]; ok {
+		fs := cont.command.Flags(flag.NewFlagSet(name, flag.ExitOnError))
+		flagHelp = fs.Bool("h", false, "")
 		fs.Parse(flag.Args()[1:])
 		args = fs.Args()
-		fn = cmd.Run
+		matchingCmd = cont
 	} else {
 		flag.Usage()
 		os.Exit(1)
@@ -94,8 +127,12 @@ func Parse() {
 // Runs the subcommand's runnable. If there is no subcommand
 // registered, it silently returns.
 func Run() {
-	if fn != nil {
-		fn(args)
+	if matchingCmd != nil {
+		if *flagHelp {
+			subcommandUsage(matchingCmd)
+			return
+		}
+		matchingCmd.command.Run(args)
 	}
 }
 
@@ -103,4 +140,12 @@ func Run() {
 func ParseAndRun() {
 	Parse()
 	Run()
+}
+
+// Returns the total number of globally registered flags.
+func numOfGlobalFlags() (count int) {
+	flag.CommandLine.VisitAll(func(flag *flag.Flag) {
+		count++
+	})
+	return
 }

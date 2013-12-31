@@ -18,7 +18,7 @@ This package allows you to use flags package as you used to do, and provides add
 import "github.com/rakyll/command"
 
 // register any global flags
-var flagExecPath = flag.String("exec-path", "", "Set a custom exec path")
+var flagExecPath = flag.String("exec-path", "", "a custom path to executable")
 
 type VersionCommand struct{
 	flagVerbose *bool
@@ -26,7 +26,7 @@ type VersionCommand struct{
 
 func (cmd *VersionCommand) Flags(fs *flag.FlagSet) *flag.FlagSet {
 	// define subcommand's flags
-	cmd.flagVerbose = fs.Bool("v", false, "Provides verbose output if set")
+	cmd.flagVerbose = fs.Bool("v", false, "provides verbose output")
 	return fs
 }
 
@@ -35,15 +35,15 @@ func (cmd *VersionCommand) Run(args []string) {
 }
 
 // register version as a subcommand
-command.On("version", &VersionCommand{})
-command.On("command1", ...)
-command.On("command2", ...)
+command.On("version", "prints the version", &VersionCommand{})
+command.On("command1", "some description about command1", ...)
+command.On("command2", "some description about command2", ...)
 command.Parse()
 // ...
 command.Run()
 ~~~
 
-The program above will handle the registered commands and invoke the matching command's `Run`.
+The program above will handle the registered commands and invoke the matching command's `Run` or print subcommand help if `-h` is set.
 
 ~~~ sh
 $ program -exec-path=/home/user/bin/someexec version -v=true
@@ -53,19 +53,17 @@ will out the version of the program in a verbose way, and will set the exec path
 
 ~~~ sh
 $ program
-Usage of program:
-  -exec-path="": Set a custom exec path
-  -help=false: Set if you would like to see the help
+Usage: program <command>
 
-  version
-  -v=false: Provides verbose output if set
+where <command> is one of:
+  version   prints the version
+  command1  some description about command1
+  command2  some description about command2
 
-  command1
-  -silent=false: Some description about silent.
+available flags:
+  -exec-path="": a custom path to executable
 
-  command2
-  -html=false: Convert output to html
-  -pdf=false: Convert output to pdf
+program <command> -h for subcommand help
 ~~~
 
 ## License

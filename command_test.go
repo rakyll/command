@@ -43,13 +43,27 @@ func TestGlobalFlags(t *testing.T) {
 	}
 }
 
+// Tests the total number of globally registered flags.
+func TestGlobalFlagsCount(t *testing.T) {
+	resetForTesting("-global1=hello", "-global2=hi")
+
+	flag.String("global1", "default-global1", "Description about global1")
+	flag.String("global2", "default-global2", "Description about global2")
+	Parse()
+
+	total := numOfGlobalFlags()
+	if total != 2 {
+		t.Error("total number of global flags are expected to be 2, found %v", total)
+	}
+}
+
 // Tests if subcommand runs if it's provided as a part of arguments.
 func TestCommand(t *testing.T) {
 	resetForTesting("-global1=hello", "command1")
 
 	flagGlobal1 := flag.String("global1", "default-global1", "Description about global1")
 	c1 := &testCmd1{}
-	On("command1", c1)
+	On("command1", "", c1)
 	Parse()
 	Run()
 	if !c1.run {
@@ -69,7 +83,7 @@ func TestCommandFlags(t *testing.T) {
 
 	flag.String("global1", "default-global1", "Description about global1")
 	c1 := &testCmd1{}
-	On("command1", c1)
+	On("command1", "", c1)
 	Parse()
 	Run()
 	if !c1.run {
@@ -87,8 +101,8 @@ func TestMultiCommands(t *testing.T) {
 
 	c1 := &testCmd1{}
 	c2 := &testCmd2{}
-	On("command1", c1)
-	On("command2", c2)
+	On("command1", "", c1)
+	On("command2", "", c2)
 	Parse()
 	Run()
 	if c1.run {
@@ -104,7 +118,7 @@ func TestRun(t *testing.T) {
 	resetForTesting("command1")
 
 	c1 := &testCmd1{}
-	On("command1", c1)
+	On("command1", "", c1)
 	Parse()
 	if c1.run {
 		t.Error("command 'command1' was not expected to run, but it did")
@@ -115,7 +129,7 @@ func TestAdditionalCommandArgs(t *testing.T) {
 	resetForTesting("command1", "--flag1=true", "somearg")
 
 	c1 := &testCmd1{}
-	On("command1", c1)
+	On("command1", "", c1)
 	Parse()
 	if len(args) < 1 || args[0] != "somearg" {
 		t.Error("additional command 'somearg' is expected, but can't be found")
