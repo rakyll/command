@@ -144,7 +144,7 @@ func ParseAndRun() {
 
 // Returns the total number of globally registered flags.
 func numOfGlobalFlags() (count int) {
-	flag.CommandLine.VisitAll(func(flag *flag.Flag) {
+	flag.VisitAll(func(flag *flag.Flag) {
 		count++
 	})
 	return
