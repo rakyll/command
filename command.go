@@ -73,7 +73,7 @@ func Usage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s <command>\n\n", program)
 	fmt.Fprintf(os.Stderr, "where <command> is one of:\n")
 	for name, cont := range cmds {
-		fmt.Fprintf(os.Stderr, "  %s\t%s\n", name, cont.desc)
+		fmt.Fprintf(os.Stderr, "  %-15s %s\n", name, cont.desc)
 	}
 
 	if numOfGlobalFlags() > 0 {
