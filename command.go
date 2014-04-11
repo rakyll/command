@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // A map of all of the registered sub-commands.
@@ -91,11 +92,8 @@ func subcommandUsage(cont *cmdCont) {
 	fs := matchingCmd.command.Flags(flag.NewFlagSet(cont.name, flag.ContinueOnError))
 	fs.PrintDefaults()
 	if len(cont.requiredArgs) > 0 {
-		fmt.Fprintf(os.Stderr, "\nArguments:\n\n")
-		for _, a := range cont.requiredArgs {
-			fmt.Fprintf(os.Stderr, "  %s\n", a)
-		}
-		fmt.Fprintf(os.Stderr, "\n")
+		fmt.Fprintf(os.Stderr, "\nrequired flags:\n")
+		fmt.Fprintf(os.Stderr, "  %s\n\n", strings.Join(cont.requiredArgs, ","))
 	}
 }
 
