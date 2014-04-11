@@ -46,12 +46,13 @@ func (cmd *VersionCommand) Flags(fs *flag.FlagSet) *flag.FlagSet {
 
 func (cmd *VersionCommand) Run(args []string) {
 	// implement the main body of the subcommand here
+  // required and optional arguments are found in args
 }
 
 // register version as a subcommand
-command.On("version", "prints the version", &VersionCommand{})
-command.On("command1", "some description about command1", ...)
-command.On("command2", "some description about command2", ...)
+command.On("version", "prints the version", &VersionCommand{}, []string{"<required-arg>"})
+command.On("command1", "some description about command1", ..., []string{})
+command.On("command2", "some description about command2", ..., []string{})
 command.Parse()
 // ...
 command.Run()
@@ -60,10 +61,10 @@ command.Run()
 The program above will handle the registered commands and invoke the matching command's `Run` or print subcommand help if `-h` is set.
 
 ~~~
-$ program -exec-path=/home/user/bin/someexec version -v=true
+$ program -exec-path=/home/user/bin/someexec version -v=true history
 ~~~
 
-will out the version of the program in a verbose way, and will set the exec path to the provided path. If arguments doesn't match any subcommand or illegal arguments are provided, it will print the usage guide.
+will output the version of the program in a verbose way requring an argument (history), and will set the exec path to the provided path. If arguments doesn't match any subcommand or illegal arguments are provided, it will print the usage guide.
 
 
 ## License

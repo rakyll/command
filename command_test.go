@@ -63,7 +63,7 @@ func TestCommand(t *testing.T) {
 
 	flagGlobal1 := flag.String("global1", "default-global1", "Description about global1")
 	c1 := &testCmd1{}
-	On("command1", "", c1)
+	On("command1", "", c1, []string{})
 	Parse()
 	Run()
 	if !c1.run {
@@ -83,7 +83,7 @@ func TestCommandFlags(t *testing.T) {
 
 	flag.String("global1", "default-global1", "Description about global1")
 	c1 := &testCmd1{}
-	On("command1", "", c1)
+	On("command1", "", c1, []string{})
 	Parse()
 	Run()
 	if !c1.run {
@@ -101,8 +101,8 @@ func TestMultiCommands(t *testing.T) {
 
 	c1 := &testCmd1{}
 	c2 := &testCmd2{}
-	On("command1", "", c1)
-	On("command2", "", c2)
+	On("command1", "", c1, []string{})
+	On("command2", "", c2, []string{})
 	Parse()
 	Run()
 	if c1.run {
@@ -118,7 +118,7 @@ func TestRun(t *testing.T) {
 	resetForTesting("command1")
 
 	c1 := &testCmd1{}
-	On("command1", "", c1)
+	On("command1", "", c1, []string{})
 	Parse()
 	if c1.run {
 		t.Error("command 'command1' was not expected to run, but it did")
@@ -129,10 +129,21 @@ func TestAdditionalCommandArgs(t *testing.T) {
 	resetForTesting("command1", "--flag1=true", "somearg")
 
 	c1 := &testCmd1{}
-	On("command1", "", c1)
+	On("command1", "", c1, []string{})
 	Parse()
 	if len(args) < 1 || args[0] != "somearg" {
 		t.Error("additional command 'somearg' is expected, but can't be found")
+	}
+}
+
+func TestAdditionalCommandAsRequiredArgs(t *testing.T) {
+	resetForTesting("command1", "--flag1=true", "somearg")
+
+	c1 := &testCmd1{}
+	On("command1", "", c1, []string{"<arg>", "<another-arg>"})
+	Parse()
+	if *flagHelp != true {
+		t.Error("expecting flagHelp to be true")
 	}
 }
 
