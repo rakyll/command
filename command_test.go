@@ -136,17 +136,6 @@ func TestAdditionalCommandArgs(t *testing.T) {
 	}
 }
 
-func TestAdditionalCommandAsRequiredArgs(t *testing.T) {
-	resetForTesting("command1", "--flag1=true", "somearg")
-
-	c1 := &testCmd1{}
-	On("command1", "", c1, []string{"<arg>", "<another-arg>"})
-	Parse()
-	if *flagHelp != true {
-		t.Error("expecting flagHelp to be true")
-	}
-}
-
 // Resets os.Args and the default flag set.
 func resetForTesting(args ...string) {
 	os.Args = append([]string{"cmd"}, args...)
@@ -171,7 +160,7 @@ func (cmd *testCmd1) Run(args []string) {
 	cmd.run = true
 }
 
-// testCmd1 is a test sub command.
+// testCmd2 is a test sub command.
 type testCmd2 struct {
 	flag2 *bool
 
