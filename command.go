@@ -46,20 +46,20 @@ type Cmd interface {
 }
 
 type cmdCont struct {
-	name         string
-	desc         string
-	command      Cmd
-	requiredArgs []string
+	name          string
+	desc          string
+	command       Cmd
+	requiredFlags []string
 }
 
 // Registers a Cmd for the provided sub-command name. E.g. name is the
 // `status` in `git status`.
-func On(name, description string, command Cmd, reqArgs []string) {
+func On(name, description string, command Cmd, requiredFlags []string) {
 	cmds[name] = &cmdCont{
-		name:         name,
-		desc:         description,
-		command:      command,
-		requiredArgs: reqArgs,
+		name:          name,
+		desc:          description,
+		command:       command,
+		requiredFlags: requiredFlags,
 	}
 }
 
@@ -91,9 +91,9 @@ func subcommandUsage(cont *cmdCont) {
 	// should only output sub command flags, ignore h flag.
 	fs := matchingCmd.command.Flags(flag.NewFlagSet(cont.name, flag.ContinueOnError))
 	fs.PrintDefaults()
-	if len(cont.requiredArgs) > 0 {
+	if len(cont.requiredFlags) > 0 {
 		fmt.Fprintf(os.Stderr, "\nrequired flags:\n")
-		fmt.Fprintf(os.Stderr, "  %s\n\n", strings.Join(cont.requiredArgs, ","))
+		fmt.Fprintf(os.Stderr, "  %s\n\n", strings.Join(cont.requiredFlags, ", "))
 	}
 }
 
@@ -124,7 +124,7 @@ func Parse() {
 		flagHelp = fs.Bool("h", false, "")
 		fs.Parse(flag.Args()[1:])
 		args = fs.Args()
-		if len(args) < len(cont.requiredArgs) {
+		if len(args) < len(cont.requiredFlags) {
 			*flagHelp = true
 		}
 		matchingCmd = cont
