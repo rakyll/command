@@ -124,10 +124,20 @@ func Parse() {
 		flagHelp = fs.Bool("h", false, "")
 		fs.Parse(flag.Args()[1:])
 		args = fs.Args()
-		if len(args) < len(cont.requiredFlags) {
-			*flagHelp = true
-		}
 		matchingCmd = cont
+
+		// Check for required flags.
+		flagMap := make(map[string]bool)
+		for _, flagName := range cont.requiredFlags {
+			flagMap[flagName] = true
+		}
+		fs.Visit(func(f *flag.Flag) {
+			delete(flagMap, f.Name)
+		})
+		if len(flagMap) > 0 {
+			subcommandUsage(matchingCmd)
+			os.Exit(1)
+		}
 	} else {
 		flag.Usage()
 		os.Exit(1)
