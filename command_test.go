@@ -51,7 +51,7 @@ func TestGlobalFlagsCount(t *testing.T) {
 	flag.String("global2", "default-global2", "Description about global2")
 	Parse()
 
-	total := numOfGlobalFlags()
+	total := numOfGlobalFlags(flag.CommandLine)
 	if total != 2 {
 		t.Error("total number of global flags are expected to be 2, found %v", total)
 	}
@@ -131,15 +131,19 @@ func TestAdditionalCommandArgs(t *testing.T) {
 	c1 := &testCmd1{}
 	On("command1", "", c1, []string{})
 	Parse()
+	//args are no longer kept in a global, instead they are in a commander field.
+	args := CommandLine.(*commander).matchingFlags.Args()
 	if len(args) < 1 || args[0] != "somearg" {
-		t.Error("additional command 'somearg' is expected, but can't be found")
+		t.Error("additional command 'somearg' is expected, but can't be found:", args)
 	}
 }
 
 // Resets os.Args and the default flag set.
 func resetForTesting(args ...string) {
+
 	os.Args = append([]string{"cmd"}, args...)
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	CommandLine = NewCommander(os.Args[0], flag.CommandLine)
 }
 
 // testCmd1 is a test sub command.
