@@ -73,7 +73,7 @@ func resetForTesting(args ...string) {
 
 	os.Args = append([]string{"cmd"}, args...)
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	CommandLine = NewCommander()
+	CommandLine = New()
 }
 
 // testCmd1 is a test sub command.

@@ -27,11 +27,10 @@ import (
 //CommandLine is the replacement for all variables see commander for implementation
 
 // CommandLine is the default Commander.
-// The top-level functions such as On, Usage, Parse and so on are wrappers for the
-// methods of CommandLine.
+// The top-level functions On and  Run are wrapper around this var
 var CommandLine = New()
 
-// Cmd represents a sub command, the simplest subcommands on have to implement this interface
+// Cmd represents a sub command
 type Cmd interface {
 	Run(args []string)
 }
@@ -55,12 +54,10 @@ type Completer interface {
 // - Run the matching subcommand
 //
 type Commander interface {
-	Cmd             // run a command
+	Cmd
 	Flagger         //configure flags
 	Completer       // configure a terminator
 	compgen.Argsgen //ability to complete var args
-	// Registers a Cmd for the provided sub-command name. E.g. name is the
-	// `status` in `git status`.
 	On(name, syntax, description string, command Cmd)
 	Path(qname string)
 }
