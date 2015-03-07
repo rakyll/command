@@ -19,153 +19,80 @@ package command
 
 import (
 	"flag"
-	"fmt"
 	"os"
-	"strings"
+
+	"github.com/ericaro/compgen"
 )
 
-// A map of all of the registered sub-commands.
-var cmds map[string]*cmdCont = make(map[string]*cmdCont)
+//CommandLine is the replacement for all variables see commander for implementation
 
-// Matching subcommand.
-var matchingCmd *cmdCont
+// CommandLine is the default Commander.
+// The top-level functions On and  Run are wrapper around this var
+var CommandLine = New()
 
-// Arguments to call subcommand's runnable.
-var args []string
-
-// Flag to determine whether help is
-// asked for subcommand or not
-var flagHelp *bool
-
-// Cmd represents a sub command, allowing to define subcommand
-// flags and runnable to run once arguments match the subcommand
-// requirements.
+// Cmd represents a sub command
 type Cmd interface {
-	Flags(*flag.FlagSet) *flag.FlagSet
 	Run(args []string)
 }
 
-type cmdCont struct {
-	name          string
-	desc          string
-	command       Cmd
-	requiredFlags []string
+//Flagger is the interface that defines the Flag method that allow to configure flags
+type Flagger interface {
+	Flags(*flag.FlagSet)
 }
 
-// Registers a Cmd for the provided sub-command name. E.g. name is the
-// `status` in `git status`.
-func On(name, description string, command Cmd, requiredFlags []string) {
-	cmds[name] = &cmdCont{
-		name:          name,
-		desc:          description,
-		command:       command,
-		requiredFlags: requiredFlags,
-	}
+//Completer is the interface that defines the Compgens method that allow to configure a Terminator
+type Completer interface {
+	Compgens(*compgen.Terminator)
 }
 
-// Prints the usage.
-func Usage() {
-	program := os.Args[0]
-	if len(cmds) == 0 {
-		// no subcommands
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", program)
-		flag.PrintDefaults()
-		return
-	}
-
-	fmt.Fprintf(os.Stderr, "Usage: %s <command>\n\n", program)
-	fmt.Fprintf(os.Stderr, "where <command> is one of:\n")
-	for name, cont := range cmds {
-		fmt.Fprintf(os.Stderr, "  %-15s %s\n", name, cont.desc)
-	}
-
-	if numOfGlobalFlags() > 0 {
-		fmt.Fprintf(os.Stderr, "\navailable flags:\n")
-		flag.PrintDefaults()
-	}
-	fmt.Fprintf(os.Stderr, "\n%s <command> -h for subcommand help\n", program)
+// Commander can register sub commands and:
+//
+// - Configure flag.FlagSet Usage function
+//
+// - Configure compgen.Terminator to complete command line with subcommands
+//
+// - Run the matching subcommand
+//
+type Commander interface {
+	Cmd
+	Flagger         //configure flags
+	Completer       // configure a terminator
+	compgen.Argsgen //ability to complete var args
+	On(name, syntax, description string, command Cmd)
+	Path(qname string)
 }
 
-func subcommandUsage(cont *cmdCont) {
-	fmt.Fprintf(os.Stderr, "Usage of %s %s:\n", os.Args[0], cont.name)
-	// should only output sub command flags, ignore h flag.
-	fs := matchingCmd.command.Flags(flag.NewFlagSet(cont.name, flag.ContinueOnError))
-	fs.PrintDefaults()
-	if len(cont.requiredFlags) > 0 {
-		fmt.Fprintf(os.Stderr, "\nrequired flags:\n")
-		fmt.Fprintf(os.Stderr, "  %s\n\n", strings.Join(cont.requiredFlags, ", "))
-	}
+//New creates a new Commander.
+func New() Commander { return &commander{cmds: make(map[string]*cmdCont)} }
+
+// Registers a Cmd for the provided sub-command name
+//
+// name is the command name: like 'status' in 'git status'
+//
+// syntax is the usual command syntax description like :
+//
+//      git [--version] [--help] [-C <path>] [-c <name>=<value>] <command> [<args>]
+//
+// description is a short line describing the subcommand.
+//
+func On(name, syntax, description string, command Cmd) {
+	CommandLine.On(name, syntax, description, command)
 }
 
-// Parses the flags and leftover arguments to match them with a
-// sub-command. Evaluate all of the global flags and register
-// sub-command handlers before calling it. Sub-command handler's
-// `Run` will be called if there is a match.
-// A usage with flag defaults will be printed if provided arguments
-// don't match the configuration.
-// Global flags are accessible once Parse executes.
-func Parse() {
-	flag.Parse()
-	// if there are no subcommands registered,
-	// return immediately
-	if len(cmds) < 1 {
-		return
-	}
-
-	flag.Usage = Usage
-	if flag.NArg() < 1 {
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	name := flag.Arg(0)
-	if cont, ok := cmds[name]; ok {
-		fs := cont.command.Flags(flag.NewFlagSet(name, flag.ExitOnError))
-		flagHelp = fs.Bool("h", false, "")
-		fs.Parse(flag.Args()[1:])
-		args = fs.Args()
-		matchingCmd = cont
-
-		// Check for required flags.
-		flagMap := make(map[string]bool)
-		for _, flagName := range cont.requiredFlags {
-			flagMap[flagName] = true
-		}
-		fs.Visit(func(f *flag.Flag) {
-			delete(flagMap, f.Name)
-		})
-		if len(flagMap) > 0 {
-			subcommandUsage(matchingCmd)
-			os.Exit(1)
-		}
-	} else {
-		flag.Usage()
-		os.Exit(1)
-	}
-}
-
-// Runs the subcommand's runnable. If there is no subcommand
-// registered, it silently returns.
+// Runs the default commander.
 func Run() {
-	if matchingCmd != nil {
-		if *flagHelp {
-			subcommandUsage(matchingCmd)
-			return
-		}
-		matchingCmd.command.Run(args)
-	}
+	Launch(CommandLine, os.Args[0], os.Args)
 }
 
-// Parses flags and run's matching subcommand's runnable.
-func ParseAndRun() {
-	Parse()
-	Run()
-}
-
-// Returns the total number of globally registered flags.
-func numOfGlobalFlags() (count int) {
-	flag.VisitAll(func(flag *flag.Flag) {
-		count++
-	})
-	return
+//Launch a standalone Cmd.
+//
+// name: the command qualified name to be displayed in the Usage ("git status")
+//
+// args: the command args (args[0] shall contain the local command name 'status' for instance)
+//
+func Launch(cmd Cmd, name string, args []string) {
+	matchingFlags, term := prepare(cmd, name)
+	term.Terminate()
+	matchingFlags.Parse(args[1:])
+	cmd.Run(matchingFlags.Args())
 }
