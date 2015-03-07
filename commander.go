@@ -20,6 +20,9 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"text/tabwriter"
+
+	"github.com/ericaro/compgen"
 )
 
 //Commander can register sub commands and:
@@ -36,7 +39,7 @@ import (
 //     	    command.Commander
 //      }
 //
-//		func (c *myCmd) Flags(fs *flag.FlagSet) *flag.FlagSet {
+//		func (c *myCmd) Flags(fs *flag.FlagSet) {
 //     	   	c.Commander = command.NewCommander("git", fs)
 //     	    c.On("status","Show the working tree status",&GitStatuCmd{}, nil)
 //      	...
@@ -44,195 +47,120 @@ import (
 //
 // Works out of the box.
 type Commander interface {
-	//Usage print the usage for this commander
-	Usage()
+	Cmd             // run a command
+	Flagger         //configure flags
+	Completer       // configure a terminator
+	compgen.Argsgen //ability to complete var args
 	// Registers a Cmd for the provided sub-command name. E.g. name is the
 	// `status` in `git status`.
-	On(name, description string, command Cmd, requiredFlags []string)
-	// Parses the flags and leftover arguments to match them with a
-	// sub-command. Evaluate all of the global flags and register
-	// sub-command handlers before calling it. Sub-command handler's
-	// `Run` will be called if there is a match.
-	// A usage with flag defaults will be printed if provided arguments
-	// don't match the configuration.
-	// Global flags are accessible once Parse executes.
-	Parse()
-	// Runs the subcommand's runnable. If there is no subcommand
-	// registered, it silently returns.
-	Run(args []string)
-	//Set Command Name as it should appear in the doc.
-	SetName(name string)
-}
-
-// Execute a Cmd as a main command
-//
-//For example:
-//
-//    Exec(&myCmd{}, os.Args)
-//
-// If you have write a Commander as a Cmd object (to be used recursively) and you want to
-// use it as a main, this method is for you.
-func Exec(cmd Cmd, args []string) {
-	// init the cmd's flagset
-	fs := cmd.Flags(flag.NewFlagSet(args[0], flag.ExitOnError))
-	//and use it to parse the args
-	fs.Parse(args[1:])
-
-	// recursive case: cmd is also a commander,
-	if cmdr, ok := cmd.(Commander); ok {
-		//pass on the name
-		cmdr.SetName(args[0])
-		// let the commander parse the args too, (to find out the actual subcommand)
-		cmdr.Parse()
-	}
-	// in any case, run it
-	cmd.Run(fs.Args())
+	On(name, syntax, description string, command Cmd)
+	Path(qname string)
 }
 
 type commander struct {
-	//a commander is made of:
-	// - its own name (defined from outside using setName)
-	// - the command's flagset (for self options)
-	// - the map of registered subcommands
-	// - the subcommand matched during "parse" stage
-	// - the args (build during parse stage) to be passed to the subcommand
-
-	name  string
-	flags *flag.FlagSet // this command flags
-
-	// A map of all of the registered sub-commands.
-	cmds map[string]*cmdCont
-
-	// Matching subcommand.
-	matchingCmd   *cmdCont
-	matchingFlags *flag.FlagSet
-
-	// Flag to determine whether help is
-	// asked for subcommand or not
-	flagHelp *bool
+	name string
+	cmds map[string]*cmdCont // A map of all of the registered sub-commands.
 }
 
 //NewCommander creates a new Commander. The 'name' is the the subcommand name,
 // and the fs is the Cmd current flagset.
 //
 // A NewCommander is better created in the Flag(fs *flag.FlagSet) method.
-func NewCommander(name string, fs *flag.FlagSet) Commander {
+func NewCommander() Commander { return &commander{cmds: make(map[string]*cmdCont)} }
 
-	c := &commander{
-		name:  name,
-		cmds:  make(map[string]*cmdCont),
-		flags: fs,
-	}
-	//a command record the usage to be declared
-	fs.Usage = c.Usage
-	return c
-}
+// implementing the three interface to configure path, flags, and compgens
 
-func (c *commander) SetName(name string) { c.name = name }
+func (c *commander) Path(qname string)                 { c.name = qname }
+func (c *commander) Flags(fs *flag.FlagSet)            { fs.Usage = func() { c.Usage(fs) } }
+func (c *commander) Compgens(term *compgen.Terminator) { term.Argsgen(c) }
 
 // Registers a Cmd for the provided sub-command name. E.g. name is the
 // `status` in `git status`.
-func (c *commander) On(name, description string, command Cmd, requiredFlags []string) {
+func (c *commander) On(name, syntax, description string, command Cmd) {
 	c.cmds[name] = &cmdCont{
-		name:          name,
-		desc:          description,
-		command:       command,
-		requiredFlags: requiredFlags,
+		name:        name,
+		syntax:      syntax,
+		description: description,
+		command:     command,
 	}
 }
 
-// Parses the flags and leftover arguments to match them with a
+// Run the flags and leftover arguments to match them with a
 // sub-command. Evaluate all of the global flags and register
 // sub-command handlers before calling it. Sub-command handler's
 // `Run` will be called if there is a match.
 // A usage with flag defaults will be printed if provided arguments
 // don't match the configuration.
 // Global flags are accessible once Parse executes.
-func (c *commander) Parse() {
-
-	// if there are no subcommands registered,
-	// return immediately
-	if len(c.cmds) < 1 {
-		return
-	}
-
-	if c.flags.NArg() < 1 {
-		c.flags.Usage()
-		os.Exit(1)
-	}
-
-	name := c.flags.Arg(0)
-
-	if cont, ok := c.cmds[name]; ok { //this is an existing command
-
-		// Init it
-		c.matchingFlags = cont.command.Flags(flag.NewFlagSet(name, flag.ExitOnError))
-		// always append a -h option to print "help"
-		c.flagHelp = c.matchingFlags.Bool("h", false, "")
-		c.matchingFlags.Parse(c.flags.Args()[1:])
-		c.matchingCmd = cont
-
-		// recursive case: if it's also a commander (it has subcommands)
-		if cmdr, ok := cont.command.(Commander); ok {
-			cmdr.SetName(c.name + " " + name)
-			//we had to split setName, and Parse because:
-
-			// checking for required flags might target subCommandUsage (that needs the name to be set)
-			// but this check need to be made before parsing the subcommand
-		}
-
-		// Check for required flags.
-		flagMap := make(map[string]bool)
-		for _, flagName := range cont.requiredFlags {
-			flagMap[flagName] = true
-		}
-		c.matchingFlags.Visit(func(f *flag.Flag) {
-			delete(flagMap, f.Name)
-		})
-		if len(flagMap) > 0 { // missed a required flag
-			c.subcommandUsage(c.matchingCmd)
-			os.Exit(1)
-		}
-
-		// ok this one is good. Now, if this "Cmd" is also a Commander go on parsing
-		if cmdr, ok := cont.command.(Commander); ok {
-			cmdr.Parse() // fs has been parsed
-		}
-
-	} else {
-		c.flags.Usage()
-		os.Exit(1)
-	}
-}
-
-//Implement the Cmd .Run method so that a Commander is almsot a Cmd too.
-// the args is ignored.
 func (c *commander) Run(args []string) {
-	c.Exec()
+
+	cont := c.getContainer(args)
+	if cont == nil {
+		c.Usage(nil)
+		os.Exit(1)
+	}
+
+	Launch(cont.command, c.name+" "+cont.name, args)
+
+}
+func prepare(cmd Cmd, name string) (*flag.FlagSet, *compgen.Terminator) {
+
+	matchingFlags := flag.NewFlagSet(name, flag.ExitOnError)
+	term := compgen.NewTerminator(matchingFlags)
+
+	if cmdr, ok := cmd.(Commander); ok {
+		cmdr.Path(name)
+	}
+	if flagger, ok := cmd.(Flagger); ok {
+		flagger.Flags(matchingFlags)
+	}
+	if cg, ok := cmd.(Completer); ok {
+		cg.Compgens(term)
+	}
+	return matchingFlags, term
 }
 
-// Exec the subcommand's runnable. If there is no subcommand
-// registered, it silently returns.
-//args is totally ignored and kept to be
-func (c *commander) Exec() {
-	if c.matchingCmd != nil {
-		if *c.flagHelp {
-			c.subcommandUsage(c.matchingCmd)
-			return
+func Launch(cmd Cmd, name string, args []string) {
+
+	matchingFlags, term := prepare(cmd, name)
+	term.Terminate()
+	matchingFlags.Parse(args[1:])
+	cmd.Run(matchingFlags.Args())
+}
+
+func (c *commander) Compgen(args []string, inword bool) (comp []string, err error) {
+
+	// two cases: either we are completing the first arg, or we need to delegate to subcommands
+	pos, prefix := compgen.Prefix(args, inword)
+	if pos == 0 {
+		//completing command
+		vals := make([]string, 0, len(c.cmds))
+		for k := range c.cmds {
+			vals = append(vals, k)
 		}
-		c.matchingCmd.command.Run(c.matchingFlags.Args())
+		// use a value based generator
+		gen := compgen.ValueGen(vals)
+		return gen(prefix), nil
+	} else { // we are completing after <command>
+		//so we get the get the command
+		cont := c.getContainer(args)
+		if cont == nil {
+			return nil, nil
+		}
+		_, term := prepare(cont.command, c.name+" "+cont.name)
+		//test if the command implements Argsgen
+		// if cmdr, ok := cont.command.(compgen.Argsgen); ok {
+		// 	//then prepare it
+		// 	term.Argsgen(cmdr)
+		// }
+		return term.Compgen(args, inword)
 	}
+	return nil, nil
 }
 
 // Prints the usage.
-func (c *commander) Usage() {
+func (c *commander) Usage(fs *flag.FlagSet) {
 	name := c.name
-	if len(c.cmds) == 0 {
-		// no subcommands
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", name)
-		c.flags.PrintDefaults()
-		return
-	}
 
 	fmt.Fprintf(os.Stderr, "Usage: %s <command>\n\n", name)
 	fmt.Fprintf(os.Stderr, "where <command> is one of:\n")
@@ -244,43 +172,32 @@ func (c *commander) Usage() {
 	}
 	sort.Stable(byName(conts))
 
+	w := tabwriter.NewWriter(os.Stderr, 8, 8, 2, ' ', 0)
 	for _, cont := range conts {
-		fmt.Fprintf(os.Stderr, "  %-15s %s\n", cont.name, cont.desc)
+		fmt.Fprintln(w, strings.Join([]string{"", cont.name, cont.syntax, cont.description, ""}, "\t"))
 	}
+	w.Flush()
 
-	if numOfGlobalFlags(c.flags) > 0 {
+	if numOfGlobalFlags(fs) > 0 {
 		fmt.Fprintf(os.Stderr, "\navailable flags:\n")
-		c.flags.PrintDefaults()
+		fs.PrintDefaults()
 	}
 	fmt.Fprintf(os.Stderr, "\n%s <command> -h for subcommand help\n", name)
 }
 
-func (c *commander) subcommandUsage(cont *cmdCont) {
-	name := c.name
-	fmt.Fprintf(os.Stderr, "  %s %-15s %s\n", name, cont.name, cont.desc)
-
-	// should only output sub command flags, ignore h flag.
-	fs := cont.command.Flags(flag.NewFlagSet(cont.name, flag.ContinueOnError))
-	if cmdr, ok := cont.command.(Commander); ok {
-		cmdr.SetName(c.name + " " + cont.name)
+// getContainer from the cmds
+func (c *commander) getContainer(args []string) *cmdCont {
+	if len(args) >= 1 {
+		return c.cmds[args[0]]
 	}
-	if fs.Usage != nil { // if the cmd has defined a usage, use it.
-		fs.Usage()
-		return
-	}
-	// else
-	if numOfGlobalFlags(fs) > 0 {
-		fmt.Fprintf(os.Stderr, "Usage %s:\n", cont.name)
-		fs.PrintDefaults()
-	}
-	if len(cont.requiredFlags) > 0 {
-		fmt.Fprintf(os.Stderr, "\nrequired flags:\n")
-		fmt.Fprintf(os.Stderr, "  %s\n\n", strings.Join(cont.requiredFlags, ", "))
-	}
+	return nil
 }
 
 // Returns the total number of registered flags in a flagset.
 func numOfGlobalFlags(fs *flag.FlagSet) (count int) {
+	if fs == nil {
+		return 0
+	}
 	fs.VisitAll(func(flag *flag.Flag) {
 		count++
 	})

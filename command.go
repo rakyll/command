@@ -20,59 +20,46 @@ package command
 import (
 	"flag"
 	"os"
+
+	"github.com/ericaro/compgen"
 )
 
 //CommandLine is the replacement for all variables see commander for implementation
 
-// CommandLine is the default commander.
+// CommandLine is the default Commander.
 // The top-level functions such as On, Usage, Parse and so on are wrappers for the
 // methods of CommandLine.
-var CommandLine = NewCommander(os.Args[0], flag.CommandLine)
+var CommandLine = NewCommander()
 
-// Cmd represents a sub command, allowing to define subcommand
-// flags and runnable to run once arguments match the subcommand
-// requirements.
+// Cmd represents a sub command, the simplest subcommands on have to implement this interface
 type Cmd interface {
-	Flags(*flag.FlagSet) *flag.FlagSet
 	Run(args []string)
 }
 
+//Flagger is the interface that defines the Flag methods that allow to configure flags
+type Flagger interface {
+	Flags(*flag.FlagSet)
+}
+
+//Completer is the interface that defines the Compgens methods that allow to configure a Terminator
+type Completer interface {
+	Compgens(*compgen.Terminator)
+}
+
+// simple command container
 type cmdCont struct {
-	name          string
-	desc          string
-	command       Cmd
-	requiredFlags []string
+	name, syntax, description string
+	command                   Cmd
 }
 
 // Registers a Cmd for the provided sub-command name. E.g. name is the
 // `status` in `git status`.
-func On(name, description string, command Cmd, requiredFlags []string) {
-	CommandLine.On(name, description, command, requiredFlags)
-}
-
-// Prints the usage.
-func Usage() {
-	CommandLine.Usage()
-}
-
-// Parses the flags and leftover arguments to match them with a
-// sub-command. Evaluate all of the global flags and register
-// sub-command handlers before calling it. Sub-command handler's
-// `Run` will be called if there is a match.
-// A usage with flag defaults will be printed if provided arguments
-// don't match the configuration.
-// Global flags are accessible once Parse executes.
-func Parse() {
-	flag.Parse() // the recursive definition of Commander requires that the command flag is parsed before calling Parse()
-	CommandLine.Parse()
+func On(name, syntax, description string, command Cmd) {
+	CommandLine.On(name, syntax, description, command)
 }
 
 // Runs the subcommand's runnable. If there is no subcommand
 // registered, it silently returns.
-func Run() { CommandLine.Run(nil) }
-
-// Parses flags and run's matching subcommand's runnable.
-func ParseAndRun() {
-	Parse()
-	Run()
+func Run() {
+	Launch(CommandLine, os.Args[0], os.Args)
 }

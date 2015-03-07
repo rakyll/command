@@ -1,70 +1,107 @@
-# command
+[![Build Status](https://travis-ci.org/ericaro/command.png?branch=master)](https://travis-ci.org/ericaro/command) [![GoDoc](https://godoc.org/github.com/ericaro/command?status.svg)](https://godoc.org/github.com/ericaro/command)
 
-[![Build Status](https://travis-ci.org/rakyll/command.png?branch=master)](https://travis-ci.org/rakyll/command)
+This library is fully `go gettable`.
 
 command is a tiny package that helps you to add cli subcommands to your Go program with no effort, and prints a pretty guide if needed.
 
-~~~
-Usage: program <command>
 
-where <command> is one of:
-  version   prints the version
-  command1  some description about command1
-  command2  some description about command2
+This work is a derivative of [rakyll's](https://github.com/rakyll/command) command library.
 
-available flags:
-  -exec-path="": a custom path to executable
-
-program <command> -h for subcommand help
-~~~
+Mainly to make it:
+- **Modular**: flags, completion, recursion are all optionals
+- **Recursive**: commands can have subcommands and so on 
+- **autocompletion**: mode compatible with bash completion
 
 ## Usage
 
-In order to start, go get this repository:
+get go an `go get`
 
 ~~~ sh
-go get github.com/rakyll/command
+go get github.com/ericaro/command
 ~~~
 
-This package allows you to use flags package as you used to do, and provides additional parsing for subcommands and subcommand flags.
+
+### Simplest commands
 
 ~~~ go
-import "github.com/rakyll/command"
 
-// register any global flags
-var flagExecPath = flag.String("exec-path", "", "a custom path to executable")
+    import "github.com/ericaro/command"
+     
+     type VersionCommand struct{}
+     
+     func (cmd *VersionCommand) Run(args []string) {
+       // implement the main body of the subcommand here
+       // arguments are found in args
+     }
+     
+     
+     // register version as a subcommand
+     command.On("version", "", prints the version", &VersionCommand{})
+     command.On("command1","[-option] <arguments>", "some description about command1")   
+     command.On("command2","[-option] <arguments>", "some description about command2")
+     // ...
+     command.Run()
+~~~
+
+That's it. It works.
+
+### Adding autocompletion
+
+See [compgen package](https://github.com/ericaro/compgen) for more details.
+
+When using `command` executable are builtin with completion capability. So you just need to register them as their own completion command:
+
+~~~ bash
+$ complete -C cmd cmd
+~~~
+
+You can copy this statement in a file into `/etc/bash_completion.d/` to make it persistent.
+
+By default completion works with
+- subcommands
+- flags names
+- flags default value
+
+It is possible though to configure it (see below)
+
+### Adding flags
+
+~~~ go
 
 type VersionCommand struct{
-	flagVerbose *bool
+  flagVerbose *bool
 }
 
-func (cmd *VersionCommand) Flags(fs *flag.FlagSet) *flag.FlagSet {
-	// define subcommand's flags
-	cmd.flagVerbose = fs.Bool("v", false, "provides verbose output")
-	return fs
+func (cmd *VersionCommand) Flags(fs *flag.FlagSet) {
+  // define subcommand's flags
+  cmd.flagVerbose = fs.Bool("v", false, "provides verbose output")
 }
 
-func (cmd *VersionCommand) Run(args []string) {
-	// implement the main body of the subcommand here
-  // required and optional arguments are found in args
-}
-
-// register version as a subcommand
-command.On("version", "prints the version", &VersionCommand{}, []string{"<required-arg>"})
-command.On("command1", "some description about command1", ..., []string{})
-command.On("command2", "some description about command2", ..., []string{})
-command.Parse()
-// ...
-command.Run()
-~~~
-
-The program above will handle the registered commands and invoke the matching command's `Run` or print subcommand help if `-h` is set.
+// everything else is unchanged
 
 ~~~
-$ program -exec-path=/home/user/bin/someexec version -v=true history
+
+### Hacking autocomplete
+
+Commands come with a default support for completion (see above)
+
+It is possible to hack in:
+
+~~~ go
+
+    type VersionCommand struct{}
+    
+    func (cmd *VersionCommand) Compgens(term *compgen.Terminator) {
+      term.Flag("d", compgen.CompgenCmd("directory") )
+    }
+    
+    // everything else is unchanged
+
 ~~~
 
-will output the version of the program in a verbose way requring an argument (history), and will set the exec path to the provided path. If arguments doesn't match any subcommand or illegal arguments are provided, it will print the usage guide.
+Now the "-d" flag will be auto-completed with local directories.
+
+See [compgen package](https://github.com/ericaro/compgen) for more details.
 
 
 ## License
