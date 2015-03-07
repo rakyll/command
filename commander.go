@@ -25,48 +25,16 @@ import (
 	"github.com/ericaro/compgen"
 )
 
-//Commander can register sub commands and:
-//
-// - print their Usage
-//
-// - Parse flagset to find out subcommands, and required flags
-//
-// - Run the matching subcommand
-//
-// Command implements Cmd.Run([]string) so you can do things like:
-//
-//      type myCmd struct {
-//     	    command.Commander
-//      }
-//
-//		func (c *myCmd) Flags(fs *flag.FlagSet) {
-//     	   	c.Commander = command.NewCommander("git", fs)
-//     	    c.On("status","Show the working tree status",&GitStatuCmd{}, nil)
-//      	...
-//		}
-//
-// Works out of the box.
-type Commander interface {
-	Cmd             // run a command
-	Flagger         //configure flags
-	Completer       // configure a terminator
-	compgen.Argsgen //ability to complete var args
-	// Registers a Cmd for the provided sub-command name. E.g. name is the
-	// `status` in `git status`.
-	On(name, syntax, description string, command Cmd)
-	Path(qname string)
+// simple command container
+type cmdCont struct {
+	name, syntax, description string
+	command                   Cmd
 }
 
 type commander struct {
 	name string
 	cmds map[string]*cmdCont // A map of all of the registered sub-commands.
 }
-
-//NewCommander creates a new Commander. The 'name' is the the subcommand name,
-// and the fs is the Cmd current flagset.
-//
-// A NewCommander is better created in the Flag(fs *flag.FlagSet) method.
-func NewCommander() Commander { return &commander{cmds: make(map[string]*cmdCont)} }
 
 // implementing the three interface to configure path, flags, and compgens
 
@@ -118,14 +86,6 @@ func prepare(cmd Cmd, name string) (*flag.FlagSet, *compgen.Terminator) {
 		cg.Compgens(term)
 	}
 	return matchingFlags, term
-}
-
-func Launch(cmd Cmd, name string, args []string) {
-
-	matchingFlags, term := prepare(cmd, name)
-	term.Terminate()
-	matchingFlags.Parse(args[1:])
-	cmd.Run(matchingFlags.Args())
 }
 
 func (c *commander) Compgen(args []string, inword bool) (comp []string, err error) {

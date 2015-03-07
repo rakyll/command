@@ -29,37 +29,73 @@ import (
 // CommandLine is the default Commander.
 // The top-level functions such as On, Usage, Parse and so on are wrappers for the
 // methods of CommandLine.
-var CommandLine = NewCommander()
+var CommandLine = New()
 
 // Cmd represents a sub command, the simplest subcommands on have to implement this interface
 type Cmd interface {
 	Run(args []string)
 }
 
-//Flagger is the interface that defines the Flag methods that allow to configure flags
+//Flagger is the interface that defines the Flag method that allow to configure flags
 type Flagger interface {
 	Flags(*flag.FlagSet)
 }
 
-//Completer is the interface that defines the Compgens methods that allow to configure a Terminator
+//Completer is the interface that defines the Compgens method that allow to configure a Terminator
 type Completer interface {
 	Compgens(*compgen.Terminator)
 }
 
-// simple command container
-type cmdCont struct {
-	name, syntax, description string
-	command                   Cmd
+// Commander can register sub commands and:
+//
+// - Configure flag.FlagSet Usage function
+//
+// - Configure compgen.Terminator to complete command line with subcommands
+//
+// - Run the matching subcommand
+//
+type Commander interface {
+	Cmd             // run a command
+	Flagger         //configure flags
+	Completer       // configure a terminator
+	compgen.Argsgen //ability to complete var args
+	// Registers a Cmd for the provided sub-command name. E.g. name is the
+	// `status` in `git status`.
+	On(name, syntax, description string, command Cmd)
+	Path(qname string)
 }
 
-// Registers a Cmd for the provided sub-command name. E.g. name is the
-// `status` in `git status`.
+//New creates a new Commander.
+func New() Commander { return &commander{cmds: make(map[string]*cmdCont)} }
+
+// Registers a Cmd for the provided sub-command name
+//
+// name is the command name: like 'status' in 'git status'
+//
+// syntax is the usual command syntax description like :
+//
+//      git [--version] [--help] [-C <path>] [-c <name>=<value>] <command> [<args>]
+//
+// description is a short line describing the subcommand.
+//
 func On(name, syntax, description string, command Cmd) {
 	CommandLine.On(name, syntax, description, command)
 }
 
-// Runs the subcommand's runnable. If there is no subcommand
-// registered, it silently returns.
+// Runs the default commander.
 func Run() {
 	Launch(CommandLine, os.Args[0], os.Args)
+}
+
+//Launch a standalone Cmd.
+//
+// name: the command qualified name to be displayed in the Usage ("git status")
+//
+// args: the command args (args[0] shall contain the local command name 'status' for instance)
+//
+func Launch(cmd Cmd, name string, args []string) {
+	matchingFlags, term := prepare(cmd, name)
+	term.Terminate()
+	matchingFlags.Parse(args[1:])
+	cmd.Run(matchingFlags.Args())
 }

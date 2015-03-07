@@ -104,7 +104,7 @@ See [compgen package](https://github.com/ericaro/compgen) for more details.
     }
 
     // create and add a "commander"
-    remote := command.NewCommander()
+    remote := command.New()
     command.On("remote", "<command>", "remote subcommands", remote)
     // and configure it
     remote.On("add", "<url>", "add a remote by url", adderCmd{})
