@@ -1,70 +1,45 @@
 [![Build Status](https://travis-ci.org/ericaro/command.png?branch=master)](https://travis-ci.org/ericaro/command) [![GoDoc](https://godoc.org/github.com/ericaro/command?status.svg)](https://godoc.org/github.com/ericaro/command)
 
-This library is fully `go gettable`.
+`command` is a tiny package that helps you to add cli subcommands to your Go program.
 
-command is a tiny package that helps you to add cli subcommands to your Go program with no effort, and prints a pretty guide if needed.
-
-
-This work is a derivative of [rakyll's](https://github.com/rakyll/command) command library.
-
-Mainly to make it:
-- **Modular**: flags, completion, recursion are all optionals
-- **Recursive**: commands can have subcommands and so on 
-- **autocompletion**: mode compatible with bash completion
+This work is a derivative of [rakyll's](https://github.com/rakyll/command) `command` library as an attempt to add:
+- **Modularity**: flags, recursion, completion are all optionals
+- **Recursivity**: commands can have subcommands and so on 
+- **Completion**: executable are  native bash completion commands.
 
 ## Usage
-
-get go an `go get`
 
 ~~~ sh
 go get github.com/ericaro/command
 ~~~
 
-
-### Simplest commands
+### The Simplest commands
 
 ~~~ go
 
+    package main
+
     import "github.com/ericaro/command"
-     
-     type VersionCommand struct{}
-     
-     func (cmd *VersionCommand) Run(args []string) {
-       // implement the main body of the subcommand here
-       // arguments are found in args
-     }
-     
-     
-     // register version as a subcommand
-     command.On("version", "", prints the version", &VersionCommand{})
-     command.On("command1","[-option] <arguments>", "some description about command1")   
-     command.On("command2","[-option] <arguments>", "some description about command2")
-     // ...
-     command.Run()
+    import "fmt"
+
+    type HelloCommand struct{}
+
+    func (cmd *HelloCommand) Run(args []string) { fmt.Printf("hello %s\n", args) }
+    func main() {
+      // register hello as a subcommand
+      command.On("hello", "<name>", "prints hello <name>", &HelloCommand{})
+      command.Run()
+    }
+
 ~~~
 
-That's it. It works.
+Fully functional Helloworld (with autocompletion builtin)
 
-### Adding autocompletion
 
-See [compgen package](https://github.com/ericaro/compgen) for more details.
-
-When using `command` executable are builtin with completion capability. So you just need to register them as their own completion command:
-
-~~~ bash
-$ complete -C cmd cmd
-~~~
-
-You can copy this statement in a file into `/etc/bash_completion.d/` to make it persistent.
-
-By default completion works with
-- subcommands
-- flags names
-- flags default value
-
-It is possible though to configure it (see below)
 
 ### Adding flags
+
+Simply make your command implement the `command.Flagger` interface
 
 ~~~ go
 
@@ -81,11 +56,26 @@ func (cmd *VersionCommand) Flags(fs *flag.FlagSet) {
 
 ~~~
 
-### Hacking autocomplete
+### Autocompletion
 
-Commands come with a default support for completion (see above)
+See [compgen package](https://github.com/ericaro/compgen) for more details.
 
-It is possible to hack in:
+When using `command`, executables are built with completion capabilities. 
+
+Therefore you just need to register them as their own completion command:
+
+~~~ bash
+$ complete -C cmd cmd
+~~~
+
+You can copy this statement in a file into `/etc/bash_completion.d/` to make it persistent.
+
+By default completion works with
+- subcommands
+- flags names
+- flags default value
+
+It is possible though to finely tune it. Simple make your command implement the `command.Completer` interface.
 
 ~~~ go
 
@@ -99,10 +89,31 @@ It is possible to hack in:
 
 ~~~
 
-Now the "-d" flag will be auto-completed with local directories.
+Now the "-d" flag will be completed with a local directories.
 
 See [compgen package](https://github.com/ericaro/compgen) for more details.
 
+## Recursive Commands
+
+~~~ go
+
+`command` exposes a Commander interface that can be configured to support any subcommands
+
+    type RemoteCommand struct{
+      command.Commander
+    }
+
+    // create and add a "commander"
+    remote := command.NewCommander()
+    command.On("remote", "<command>", "remote subcommands", remote)
+    // and configure it
+    remote.On("add", "<url>", "add a remote by url", adderCmd{})
+    remote.On("remove", "<url>", "add a remote by url", removeCmd{})
+~~~
+
+~~~ bash
+$ cmd remote add http://github.com/ericaro/command
+~~~
 
 ## License
 
