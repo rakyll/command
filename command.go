@@ -37,6 +37,8 @@ var args []string
 // asked for subcommand or not
 var flagHelp *bool
 
+var definedHelp *Cmd = nil
+
 // Cmd represents a sub command, allowing to define subcommand
 // flags and runnable to run once arguments match the subcommand
 // requirements.
@@ -105,7 +107,28 @@ func subcommandUsage(cont *cmdCont) {
 // don't match the configuration.
 // Global flags are accessible once Parse executes.
 func Parse() {
+
+	helpCmd := definedHelp
+
+	canCallHelp := true
+
+	if helpCmd == nil {
+		canCallHelp = false
+
+		var helpCmdV *cmdCont
+		helpCmdV, canCallHelp = cmds["help"]
+		if canCallHelp && helpCmdV != nil {
+			helpCmd = &helpCmdV.command
+		}
+	}
+	if canCallHelp {
+		flag.Usage = func() {
+			(*helpCmd).Run(os.Args[2:])
+		}
+	}
+
 	flag.Parse()
+
 	// if there are no subcommands registered,
 	// return immediately
 	if len(cmds) < 1 {
@@ -168,4 +191,8 @@ func numOfGlobalFlags() (count int) {
 		count++
 	})
 	return
+}
+
+func DefineHelp(help Cmd) {
+	definedHelp = &help
 }
