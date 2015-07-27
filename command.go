@@ -21,11 +21,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
 var (
-    OutFileDesc = os.Stdout
+	OutFileDesc = os.Stdout
 )
 
 // A map of all of the registered sub-commands.
@@ -69,6 +70,20 @@ func On(name, description string, command Cmd, requiredFlags []string) {
 	}
 }
 
+func printUsageSorted(mapping map[string]*cmdCont) {
+	keys := []string{}
+	for key := range mapping {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		cont := mapping[key]
+		fmt.Fprintf(OutFileDesc, "  %-15s %s\n", key, cont.desc)
+	}
+}
+
 // Prints the usage.
 func Usage() {
 	program := os.Args[0]
@@ -81,14 +96,14 @@ func Usage() {
 
 	fmt.Fprintf(OutFileDesc, "Usage: %s <command>\n\n", program)
 	fmt.Fprintf(OutFileDesc, "where <command> is one of:\n")
-	for name, cont := range cmds {
-		fmt.Fprintf(OutFileDesc, "  %-15s %s\n", name, cont.desc)
-	}
+
+	printUsageSorted(cmds)
 
 	if numOfGlobalFlags() > 0 {
 		fmt.Fprintf(OutFileDesc, "\navailable flags:\n")
 		flag.PrintDefaults()
 	}
+
 	fmt.Fprintf(OutFileDesc, "\n%s <command> -h for subcommand help\n", program)
 }
 
